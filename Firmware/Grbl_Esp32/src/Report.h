@@ -122,6 +122,9 @@ void report_realtime_debug();
 
 void report_machine_type(uint8_t client);
 
+// Reports the current machine mode (normal, pendrive, i2c_slave)
+void report_machine_mode();
+
 void report_hex_msg(char* buf, const char* prefix, int len);
 void report_hex_msg(uint8_t* buf, const char* prefix, int len);
 

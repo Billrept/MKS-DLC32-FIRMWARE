@@ -26,6 +26,7 @@
 #include "mks/MKS_draw_ready.h"
 #include "mks/MKS_ctrl.h"
 #include "mks/MKS_SDCard.h"
+#include "mks/MKS_I2C_Slave.h" // Add our I2C slave header
 
 void grbl_init() {
 
@@ -57,6 +58,7 @@ void grbl_init() {
     init_motors();
     memset(sys_position, 0, sizeof(sys_position));  // Clear machine position.
     machine_init();                                 // weak definition in Grbl.cpp does nothing
+    
     // Initialize system state.
 #ifdef FORCE_INITIALIZATION_ALARM
     // Force Grbl into an ALARM state upon a power-cycle or hard reset.
@@ -123,6 +125,9 @@ void _mc_task_init(void) {
     tft_TS35_init();
     test_cfg_find_init();
     disp_task_init();
+    
+    // Initialize I2C slave functionality
+    mks_i2c_slave_init();
 }
 
 

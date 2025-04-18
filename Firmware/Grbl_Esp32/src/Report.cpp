@@ -288,6 +288,9 @@ void report_feedback_message(Message message) {  // ok to send to all clients
 // Welcome message
 void report_init_message(uint8_t client) {
     grbl_sendf(client, "\r\nGrbl %s ['$' for help]\r\n", GRBL_VERSION);
+    
+    // Report the current machine mode
+    report_machine_mode();
 }
 
 // Grbl help message
