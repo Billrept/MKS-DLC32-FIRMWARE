@@ -10,8 +10,9 @@ void mks_i2c_slave_init() {
     // Initialize with default mode
     mks_machine_mode = MODE_NONE;
     
-    // Initialize I2C hardware
+    // Initialize I2C hardware with specified frequency
     Wire.begin(I2C_SDA_PIN, I2C_SCL_PIN);
+    Wire.setClock(I2C_CLOCK_FREQ); // Set clock frequency to 100 kHz
     
     // Create a task for polling I2C
     xTaskCreate(
@@ -24,7 +25,8 @@ void mks_i2c_slave_init() {
     );
     
     // Log initialization
-    grbl_msg_sendf(CLIENT_SERIAL, MsgLevel::Info, "I2C initialized with polling on pins %d (SDA) and %d (SCL)", I2C_SDA_PIN, I2C_SCL_PIN);
+    grbl_msg_sendf(CLIENT_SERIAL, MsgLevel::Info, "I2C initialized with polling on pins %d (SDA) and %d (SCL) at %d Hz", 
+                  I2C_SDA_PIN, I2C_SCL_PIN, I2C_CLOCK_FREQ);
 }
 
 // FreeRTOS task for periodically polling I2C
@@ -32,12 +34,12 @@ void mks_i2c_poll_task(void* parameter) {
     for (;;) {
         // Check if any JSON command is available via serial for testing
         if (Serial.available() > 0) {
-            size_t len = Serial.readBytesUntil('\n', i2c_buffer, sizeof(i2c_buffer) - 1);
+            size_t len = Serial.readBytesUntil('\n', i2c_buffer, sizeof(i2c_buffer) - 2);
             if (len > 0) {
                 i2c_buffer[len] = '\0';
                 
                 // Process commands that start with J: as JSON commands
-                if (len > 2 && i2c_buffer[0] == 'J' && i2c_buffer[1] == ':') {
+                if (len > 2 && i2c_buffer[0] == 'J' && i2c_buffer[1] == ':' && len > 3) {
                     // Forward the raw JSON to UGS console
                     forward_json_to_console(&i2c_buffer[2]);
                     
@@ -47,8 +49,34 @@ void mks_i2c_poll_task(void* parameter) {
             }
         }
         
+        // Poll Arduino Nano (slave at address 0x08) for JSON data
+        Wire.requestFrom(0x08, 32);  // Request up to 32 bytes (adjust based on expected JSON size)
+        
+        if (Wire.available()) {
+            size_t i = 0;
+            while (Wire.available() && i < sizeof(i2c_buffer) - 2) {
+                i2c_buffer[i++] = Wire.read();
+            }
+            i2c_buffer[i] = '\0';
+            
+            if (i > 0) {
+                // Check if received data is valid JSON 
+                if (i2c_buffer[0] == '{') {
+                    // Forward the raw JSON to UGS console
+                    forward_json_to_console(i2c_buffer);
+                    
+                    // Process the JSON command
+                    mks_i2c_process_json(i2c_buffer);
+                }
+            }
+        }
+        
         // This task should run at a low priority and not interfere with G-code processing
-        vTaskDelay(I2C_POLL_INTERVAL / portTICK_PERIOD_MS);
+        // Ensure a minimum delay to prevent excessive CPU usage
+        const TickType_t minDelay = 10 / portTICK_PERIOD_MS; // Minimum delay of 10ms
+        TickType_t delay = (I2C_POLL_INTERVAL / portTICK_PERIOD_MS) > minDelay ? 
+                           (I2C_POLL_INTERVAL / portTICK_PERIOD_MS) : minDelay;
+        vTaskDelay(delay);
     }
 }
 

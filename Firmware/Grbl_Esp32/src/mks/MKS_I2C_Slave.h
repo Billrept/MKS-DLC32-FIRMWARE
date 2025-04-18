@@ -6,8 +6,8 @@
 #include "../Grbl.h"
 
 // I2C Configuration
-#define I2C_SDA_PIN 21          // I2C SDA pin (modify as needed for your board)
-#define I2C_SCL_PIN 22          // I2C SCL pin (modify as needed for your board)
+#define I2C_SDA_PIN 0           // I2C SDA pin (IO0)
+#define I2C_SCL_PIN 4           // I2C SCL pin (IO4)
 #define I2C_CLOCK_FREQ 100000   // 100kHz I2C clock frequency
 #define I2C_POLL_INTERVAL 100   // Poll every 100ms
 
