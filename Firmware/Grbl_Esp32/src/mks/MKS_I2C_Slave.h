@@ -11,6 +11,10 @@
 #define I2C_CLOCK_FREQ 100000   // 100kHz I2C clock frequency
 #define I2C_POLL_INTERVAL 100   // Poll every 100ms
 
+// JSON reporting configuration
+#define JSON_REPORT_INTERVAL 500    // Send JSON to console every 500ms
+#define JSON_REPORT_DURATION 5000   // Report for 5 seconds (10 messages)
+
 // Machine operating modes
 #define MODE_NONE     0       // No specific mode
 #define MODE_SPINDLE  1       // Spindle mode (CNC)

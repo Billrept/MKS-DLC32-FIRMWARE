@@ -5,6 +5,12 @@ uint8_t mks_machine_mode = MODE_NONE; // Default mode is none
 TaskHandle_t i2cTaskHandle = NULL;    // Task handle for the polling task
 char i2c_buffer[256];                 // Buffer for I2C data
 
+// Variables for throttled JSON reporting
+uint32_t last_json_report_time = 0;   // Last time JSON was reported
+uint32_t mode_change_time = 0;        // Time when mode change was detected
+bool throttled_reporting_active = false; // Flag to indicate if throttled reporting is active
+char last_json_content[256] = {0};    // Store the last JSON content for repeat sending
+
 // Initialize I2C functionality
 void mks_i2c_slave_init() {
     // Initialize with default mode
@@ -32,6 +38,24 @@ void mks_i2c_slave_init() {
 // FreeRTOS task for periodically polling I2C
 void mks_i2c_poll_task(void* parameter) {
     for (;;) {
+        uint32_t current_time = millis();
+        
+        // Handle throttled reporting if active
+        if (throttled_reporting_active) {
+            // Check if we should continue throttled reporting
+            if ((current_time - mode_change_time) <= JSON_REPORT_DURATION) {
+                // Check if it's time to send another report
+                if ((current_time - last_json_report_time) >= JSON_REPORT_INTERVAL) {
+                    // Send the stored JSON to console
+                    grbl_sendf(CLIENT_SERIAL, "[JSON:%s]\r\n", last_json_content);
+                    last_json_report_time = current_time;
+                }
+            } else {
+                // Reporting duration expired
+                throttled_reporting_active = false;
+            }
+        }
+
         // Check if any JSON command is available via serial for testing
         if (Serial.available() > 0) {
             size_t len = Serial.readBytesUntil('\n', i2c_buffer, sizeof(i2c_buffer) - 2);
@@ -40,10 +64,20 @@ void mks_i2c_poll_task(void* parameter) {
                 
                 // Process commands that start with J: as JSON commands
                 if (len > 2 && i2c_buffer[0] == 'J' && i2c_buffer[1] == ':' && len > 3) {
-                    // Forward the raw JSON to UGS console
-                    forward_json_to_console(&i2c_buffer[2]);
+                    // Store JSON for throttled reporting
+                    strncpy(last_json_content, &i2c_buffer[2], sizeof(last_json_content) - 1);
+                    last_json_content[sizeof(last_json_content) - 1] = '\0';
                     
-                    // Process the command
+                    // Start throttled reporting
+                    if (!throttled_reporting_active) {
+                        // Send first report immediately
+                        forward_json_to_console(&i2c_buffer[2]);
+                        mode_change_time = current_time;
+                        last_json_report_time = current_time;
+                        throttled_reporting_active = true;
+                    }
+                    
+                    // Process the command regardless of throttling
                     mks_i2c_process_json(&i2c_buffer[2]);
                 }
             }
@@ -61,10 +95,20 @@ void mks_i2c_poll_task(void* parameter) {
             if (i > 0) {
                 // Check if received data is valid JSON 
                 if (i2c_buffer[0] == '{') {
-                    // Forward the raw JSON to UGS console
-                    forward_json_to_console(i2c_buffer);
+                    // Store JSON for throttled reporting
+                    strncpy(last_json_content, i2c_buffer, sizeof(last_json_content) - 1);
+                    last_json_content[sizeof(last_json_content) - 1] = '\0';
                     
-                    // Process the JSON command
+                    // Start throttled reporting if not already active
+                    if (!throttled_reporting_active) {
+                        // Send first report immediately
+                        forward_json_to_console(i2c_buffer);
+                        mode_change_time = current_time;
+                        last_json_report_time = current_time;
+                        throttled_reporting_active = true;
+                    }
+                    
+                    // Process the JSON command regardless of throttling
                     mks_i2c_process_json(i2c_buffer);
                 }
             }
@@ -79,9 +123,8 @@ void mks_i2c_poll_task(void* parameter) {
     }
 }
 
-// Forward JSON to UGS console
+// Forward JSON to UGS console - now only used for the first immediate report
 void forward_json_to_console(const char* json) {
-    // Forward the raw JSON to the serial console for UGS to receive
     grbl_sendf(CLIENT_SERIAL, "[JSON:%s]\r\n", json);
 }
 
@@ -100,20 +143,22 @@ void mks_i2c_process_json(const char* json) {
     if (doc.containsKey("mode")) {
         const char* mode = doc["mode"];
         if (mode) {
-            if (strcmp(mode, "spindle") == 0) {
+            uint8_t previous_mode = mks_machine_mode;
+            
+            if (strncmp(mode, "spindle", 7) == 0) {
                 mks_machine_mode = MODE_SPINDLE;
             }
-            else if (strcmp(mode, "laser") == 0) {
+            else if (strncmp(mode, "laser", 5) == 0) {
                 mks_machine_mode = MODE_LASER;
             }
-            else if (strcmp(mode, "drawing") == 0) {
+            else if (strncmp(mode, "drawing", 7) == 0) {
                 mks_machine_mode = MODE_DRAWING;
             }
-            else if (strcmp(mode, "none") == 0) {
+            else if (strncmp(mode, "none", 4) == 0) {
                 mks_machine_mode = MODE_NONE;
             }
             
-            // Report mode change
+            // Report mode change to all clients
             report_machine_mode();
         }
     }
