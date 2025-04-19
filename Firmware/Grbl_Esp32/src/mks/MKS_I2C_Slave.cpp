@@ -50,8 +50,7 @@ void mks_i2c_poll_task(void* parameter) {
         }
         
         // Poll Arduino Nano (slave at address 0x08) for JSON data
-        Wire.requestFrom(0x08, 32);  // Request up to 32 bytes (adjust based on expected JSON size)
-        
+        Wire.requestFrom(0x08, 32); 
         if (Wire.available()) {
             size_t i = 0;
             while (Wire.available() && i < sizeof(i2c_buffer) - 2) {
@@ -103,7 +102,7 @@ void mks_i2c_process_json(const char* json) {
         if (mode) {
             if (strcmp(mode, "spindle") == 0) {
                 mks_machine_mode = MODE_SPINDLE;
-            } 
+            }
             else if (strcmp(mode, "laser") == 0) {
                 mks_machine_mode = MODE_LASER;
             }
