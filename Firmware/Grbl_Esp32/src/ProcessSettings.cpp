@@ -452,7 +452,7 @@ void make_grbl_commands() {
     new GrblCommand("", "Help", show_grbl_help, anyState);
     new GrblCommand("T", "State", showState, anyState);
     new GrblCommand("J", "Jog", doJog, idleOrJog);
-    new GrblCommand("SC", "Toggle step counting during jogging", toggle_step_counting, anyState);
+    new GrblCommand("SCO", "Toggle step counting during jogging", toggle_step_counting, anyState);
 
     new GrblCommand("$", "GrblSettings/List", report_normal_settings, notCycleOrHold);
     new GrblCommand("+", "ExtendedSettings/List", report_extended_settings, notCycleOrHold);
