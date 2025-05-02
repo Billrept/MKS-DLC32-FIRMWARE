@@ -27,6 +27,9 @@
 
 #include <atomic>
 
+// Import the step counting variable
+extern bool step_counting_enabled;
+
 // Stores the planner block Bresenham algorithm execution data for the segments in the segment
 // buffer. Normally, this buffer is partially in-use, but, for the worst case scenario, it will
 // never exceed the number of accessible stepper buffer segments (SEGMENT_BUFFER_SIZE-1).
@@ -314,8 +317,18 @@ static void stepper_pulse_func() {
             st.counter[axis] -= st.exec_block->step_event_count;
             if (st.exec_block->direction_bits & bit(axis)) {
                 sys_position[axis]--;
+                
+                // Count steps for jogging if enabled
+                if (step_counting_enabled && sys.state == State::Jog) {
+                    sys.jog_step_counts[axis]--;
+                }
             } else {
                 sys_position[axis]++;
+                
+                // Count steps for jogging if enabled
+                if (step_counting_enabled && sys.state == State::Jog) {
+                    sys.jog_step_counts[axis]++;
+                }
             }
         }
     }

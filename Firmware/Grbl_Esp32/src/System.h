@@ -107,6 +107,7 @@ typedef struct {
     Override override_ctrl;  // Tracks override control states.
 #endif
     uint32_t spindle_speed;
+    int32_t jog_step_counts[MAX_N_AXIS]; // Step counter for each axis during jogging
 } system_t;
 extern system_t sys;
 

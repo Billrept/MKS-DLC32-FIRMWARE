@@ -333,6 +333,26 @@ Error doJog(const char* value, WebUI::AuthenticationLevel auth_level, WebUI::ESP
     return gc_execute_line(jogLine, out->client());
 }
 
+// Global variable to track if step counting is enabled
+bool step_counting_enabled = false;
+
+Error toggle_step_counting(const char* value, WebUI::AuthenticationLevel auth_level, WebUI::ESPResponseStream* out) {
+    // Toggle step counting state
+    step_counting_enabled = !step_counting_enabled;
+    
+    if (step_counting_enabled) {
+        // Reset step counters when enabling
+        for (uint8_t idx = 0; idx < MAX_N_AXIS; idx++) {
+            sys.jog_step_counts[idx] = 0;
+        }
+        grbl_sendf(out->client(), "[MSG:Step counting enabled]\r\n");
+    } else {
+        grbl_sendf(out->client(), "[MSG:Step counting disabled]\r\n");
+    }
+    
+    return Error::Ok;
+}
+
 const char* alarmString(ExecAlarm alarmNumber) {
     auto it = AlarmNames.find(alarmNumber);
     return it == AlarmNames.end() ? NULL : it->second;
@@ -432,6 +452,7 @@ void make_grbl_commands() {
     new GrblCommand("", "Help", show_grbl_help, anyState);
     new GrblCommand("T", "State", showState, anyState);
     new GrblCommand("J", "Jog", doJog, idleOrJog);
+    new GrblCommand("SC", "Toggle step counting during jogging", toggle_step_counting, anyState);
 
     new GrblCommand("$", "GrblSettings/List", report_normal_settings, notCycleOrHold);
     new GrblCommand("+", "ExtendedSettings/List", report_extended_settings, notCycleOrHold);

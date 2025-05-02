@@ -50,6 +50,9 @@
 #include <map>
 #include "mks/MKS_draw_print.h"
 
+// Import the step counting variable
+extern bool step_counting_enabled;
+
 #ifdef REPORT_HEAP
 EspClass esp;
 #endif
@@ -790,13 +793,36 @@ void report_realtime_status(uint8_t client) {
 
     strcat(status, ">\r\n");
     grbl_send(client, status);
+    
+    // Report step counts during jogging if step counting is enabled
+    if (step_counting_enabled && sys.state == State::Jog) {
+        report_realtime_steps();
+    }
 }
+
+// Import the step counting variable
+extern bool step_counting_enabled;
 
 void report_realtime_steps() {
     uint8_t idx;
     auto    n_axis = number_axis->get();
-    for (idx = 0; idx < n_axis; idx++) {
-        grbl_sendf(CLIENT_ALL, "%ld\n", sys_position[idx]);  // OK to send to all ... debug stuff
+    
+    if (step_counting_enabled && sys.state == State::Jog) {
+        // When step counting is enabled during jogging, report jog step counts
+        grbl_sendf(CLIENT_ALL, "[JOG STEPS:");
+        for (idx = 0; idx < n_axis; idx++) {
+            char axis_letter = report_get_axis_letter(idx);
+            grbl_sendf(CLIENT_ALL, "%c:%ld", axis_letter, sys.jog_step_counts[idx]);
+            if (idx < n_axis - 1) {
+                grbl_sendf(CLIENT_ALL, ",");
+            }
+        }
+        grbl_sendf(CLIENT_ALL, "]\r\n");
+    } else {
+        // Original behavior for debug purposes
+        for (idx = 0; idx < n_axis; idx++) {
+            grbl_sendf(CLIENT_ALL, "%ld\n", sys_position[idx]);  // OK to send to all ... debug stuff
+        }
     }
 }
 
