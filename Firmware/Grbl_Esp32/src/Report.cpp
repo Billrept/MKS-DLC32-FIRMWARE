@@ -53,6 +53,10 @@
 // Import the step counting variable
 extern bool step_counting_enabled;
 
+// Variables to track jog state and reporting
+bool jog_step_report_pending = false;
+uint64_t jog_complete_time = 0;
+
 #ifdef REPORT_HEAP
 EspClass esp;
 #endif
@@ -591,6 +595,21 @@ void report_realtime_status(uint8_t client) {
     char status[244];
     char temp[MAX_N_AXIS * 20];
 
+    // Check if we need to report jog step counts after a delay
+    if (jog_step_report_pending && (esp_timer_get_time() > jog_complete_time)) {
+        report_realtime_steps();
+        jog_step_report_pending = false;
+    }
+
+    // Detect state transition from Jog to Idle (jog complete)
+    static State last_state = State::Idle;
+    if (last_state == State::Jog && sys.state == State::Idle && step_counting_enabled) {
+        // Schedule a step count report with 0.5 second delay
+        jog_step_report_pending = true;
+        jog_complete_time = esp_timer_get_time() + 500000; // 0.5 second in microseconds
+    }
+    last_state = sys.state;
+
     strcpy(status, "<");
     strcat(status, report_state_text());
 
@@ -793,11 +812,6 @@ void report_realtime_status(uint8_t client) {
 
     strcat(status, ">\r\n");
     grbl_send(client, status);
-    
-    // Report step counts during jogging if step counting is enabled
-    if (step_counting_enabled && sys.state == State::Jog) {
-        report_realtime_steps();
-    }
 }
 
 // Import the step counting variable
