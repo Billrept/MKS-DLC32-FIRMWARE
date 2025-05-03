@@ -353,6 +353,77 @@ Error toggle_step_counting(const char* value, WebUI::AuthenticationLevel auth_le
     return Error::Ok;
 }
 
+// Function to jog an axis until it hits a limit switch
+Error jogToLimitSwitch(const char* value, uint8_t axis, WebUI::AuthenticationLevel auth_level, WebUI::ESPResponseStream* out) {
+    bool original_step_counting = step_counting_enabled;
+    
+    step_counting_enabled = true;
+    
+    for (uint8_t idx = 0; idx < MAX_N_AXIS; idx++) {
+        sys.jog_step_counts[idx] = 0;
+    }
+    
+    float direction = -1.0;  // Default direction is negative
+    float feedrate = 1000;  // Default 1000mm/min
+    
+    if (value && *value) {
+        char* endptr;
+        float param = strtof(value, &endptr);
+        if (endptr != value) {
+            direction = (param < 0) ? -1.0 : 1.0;
+            
+            // Check for feedrate
+            value = endptr;
+            while (isspace(*value) || *value == ',') value++;
+            
+            if (*value) {
+                param = strtof(value, &endptr);
+                if (endptr != value) {
+                    feedrate = fabs(param);
+                }
+            }
+        }
+    }
+    
+    // Create jog command with a large distance that will hit the limit switch
+    char jogLine[LINE_BUFFER_SIZE];
+    
+    char axis_letter = 'X' + axis; // Converts 0->X, 1->Y, 2->Z
+    if (axis > 2) axis_letter = 'A' + (axis - 3); // Handle A,B,C axes
+    
+    // Build jog command with 10000mm distance (will hit limit before this)
+    sprintf(jogLine, "$J=G91%c%f F%f", 
+            axis_letter, 
+            direction * 10000.0, 
+            feedrate);
+            
+    // Execute the jog command
+    grbl_sendf(out->client(), "[MSG:Jogging %c axis until limit hit]\r\n", axis_letter);
+    Error result = gc_execute_line(jogLine, out->client());
+    
+    // Note: The jog will be automatically stopped when a limit switch is triggered
+    // The step count will be reported by the regular reporting mechanism with 0.5s delay
+    
+    if (!original_step_counting) {
+
+    }
+    
+    return result;
+}
+
+// Axis-specific jog commands
+Error jogXToLimit(const char* value, WebUI::AuthenticationLevel auth_level, WebUI::ESPResponseStream* out) {
+    return jogToLimitSwitch(value, X_AXIS, auth_level, out);
+}
+
+Error jogYToLimit(const char* value, WebUI::AuthenticationLevel auth_level, WebUI::ESPResponseStream* out) {
+    return jogToLimitSwitch(value, Y_AXIS, auth_level, out);
+}
+
+Error jogZToLimit(const char* value, WebUI::AuthenticationLevel auth_level, WebUI::ESPResponseStream* out) {
+    return jogToLimitSwitch(value, Z_AXIS, auth_level, out);
+}
+
 const char* alarmString(ExecAlarm alarmNumber) {
     auto it = AlarmNames.find(alarmNumber);
     return it == AlarmNames.end() ? NULL : it->second;
@@ -452,6 +523,10 @@ void make_grbl_commands() {
     new GrblCommand("", "Help", show_grbl_help, anyState);
     new GrblCommand("T", "State", showState, anyState);
     new GrblCommand("J", "Jog", doJog, idleOrJog);
+    // Add these new commands
+    new GrblCommand("JX", "Jog X to Limit", jogXToLimit, idleOrJog);
+    new GrblCommand("JY", "Jog Y to Limit", jogYToLimit, idleOrJog);
+    new GrblCommand("JZ", "Jog Z to Limit", jogZToLimit, idleOrJog);
     new GrblCommand("SCO", "Toggle step counting during jogging", toggle_step_counting, anyState);
 
     new GrblCommand("$", "GrblSettings/List", report_normal_settings, notCycleOrHold);

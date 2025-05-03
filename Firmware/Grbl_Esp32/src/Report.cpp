@@ -601,9 +601,11 @@ void report_realtime_status(uint8_t client) {
         jog_step_report_pending = false;
     }
 
-    // Detect state transition from Jog to Idle (jog complete)
+    // Detect state transition from Jog to Idle or Alarm (jog complete or limit hit)
     static State last_state = State::Idle;
-    if (last_state == State::Jog && sys.state == State::Idle && step_counting_enabled) {
+    if (last_state == State::Jog && 
+        (sys.state == State::Idle || sys.state == State::Alarm) && 
+        step_counting_enabled) {
         // Schedule a step count report with 0.5 second delay
         jog_step_report_pending = true;
         jog_complete_time = esp_timer_get_time() + 500000; // 0.5 second in microseconds
