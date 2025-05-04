@@ -1,6 +1,7 @@
 #include "Grbl.h"
 #include <map>
 #include "Regex.h"
+#include "mks/MKS_I2C_Slave.h"
 
 // WG Readable and writable as guest
 // WU Readable and writable as user and admin
@@ -424,6 +425,46 @@ Error jogZToLimit(const char* value, WebUI::AuthenticationLevel auth_level, WebU
     return jogToLimitSwitch(value, Z_AXIS, auth_level, out);
 }
 
+// Function to send a color JSON command to Arduino
+Error send_color_command(const char* value, const char* colorName, WebUI::AuthenticationLevel auth_level, WebUI::ESPResponseStream* out) {
+    if (!value) {
+        grbl_sendf(out->client(), "[MSG: Please specify a %s color value]\r\n", colorName);
+        return Error::InvalidValue;
+    }
+    
+    // Prepare the JSON payload
+    char jsonBuffer[32];
+    snprintf(jsonBuffer, sizeof(jsonBuffer), "{\"color\":\"%s\"}", value);
+    
+    // Send JSON to Arduino
+    bool success = send_json_to_arduino(jsonBuffer);
+    
+    if (success) {
+        grbl_sendf(out->client(), "[MSG: Color set to %s]\r\n", value);
+        return Error::Ok;
+    } else {
+        // Use InvalidStatement instead of TransmissionError which doesn't exist
+        return Error::InvalidStatement;
+    }
+}
+
+// CMYK color command handlers
+Error send_cyan_command(const char* value, WebUI::AuthenticationLevel auth_level, WebUI::ESPResponseStream* out) {
+    return send_color_command(value, "cyan", auth_level, out);
+}
+
+Error send_magenta_command(const char* value, WebUI::AuthenticationLevel auth_level, WebUI::ESPResponseStream* out) {
+    return send_color_command(value, "magenta", auth_level, out);
+}
+
+Error send_yellow_command(const char* value, WebUI::AuthenticationLevel auth_level, WebUI::ESPResponseStream* out) {
+    return send_color_command(value, "yellow", auth_level, out);
+}
+
+Error send_black_command(const char* value, WebUI::AuthenticationLevel auth_level, WebUI::ESPResponseStream* out) {
+    return send_color_command(value, "black", auth_level, out);
+}
+
 const char* alarmString(ExecAlarm alarmNumber) {
     auto it = AlarmNames.find(alarmNumber);
     return it == AlarmNames.end() ? NULL : it->second;
@@ -528,7 +569,10 @@ void make_grbl_commands() {
     new GrblCommand("JY", "Jog Y to Limit", jogYToLimit, idleOrJog);
     new GrblCommand("JZ", "Jog Z to Limit", jogZToLimit, idleOrJog);
     new GrblCommand("SCO", "Toggle step counting during jogging", toggle_step_counting, anyState);
-
+    new GrblCommand("CC", "Set Cyan Color", send_cyan_command, anyState);
+    new GrblCommand("CM", "Set Magenta Color", send_magenta_command, anyState);
+    new GrblCommand("CY", "Set Yellow Color", send_yellow_command, anyState);
+    new GrblCommand("CK", "Set Black Color", send_black_command, anyState);
     new GrblCommand("$", "GrblSettings/List", report_normal_settings, notCycleOrHold);
     new GrblCommand("+", "ExtendedSettings/List", report_extended_settings, notCycleOrHold);
     new GrblCommand("L", "GrblNames/List", list_grbl_names, notCycleOrHold);

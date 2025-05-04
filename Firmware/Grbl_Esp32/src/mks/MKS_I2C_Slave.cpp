@@ -40,23 +40,16 @@ void mks_i2c_poll_task(void* parameter) {
     for (;;) {
         uint32_t current_time = millis();
         
-        // Handle throttled reporting if active
         if (throttled_reporting_active) {
-            // Check if we should continue throttled reporting
             if ((current_time - mode_change_time) <= JSON_REPORT_DURATION) {
-                // Check if it's time to send another report
                 if ((current_time - last_json_report_time) >= JSON_REPORT_INTERVAL) {
-                    // Send the stored JSON to console
                     grbl_sendf(CLIENT_SERIAL, "[JSON:%s]\r\n", last_json_content);
                     last_json_report_time = current_time;
                 }
             } else {
-                // Reporting duration expired
                 throttled_reporting_active = false;
             }
         }
-
-        // Check if any JSON command is available via serial for testing
         if (Serial.available() > 0) {
             size_t len = Serial.readBytesUntil('\n', i2c_buffer, sizeof(i2c_buffer) - 2);
             if (len > 0) {
@@ -144,47 +137,67 @@ void mks_i2c_process_json(const char* json) {
         const char* mode = doc["mode"];
         if (mode) {
             uint8_t previous_mode = mks_machine_mode;
+            uint8_t new_mode = MODE_NONE;
             
             if (strncmp(mode, "spindle", 7) == 0) {
-                mks_machine_mode = MODE_SPINDLE;
+                new_mode = MODE_SPINDLE;
             }
             else if (strncmp(mode, "laser", 5) == 0) {
-                mks_machine_mode = MODE_LASER;
+                new_mode = MODE_LASER;
             }
             else if (strncmp(mode, "drawing", 7) == 0) {
-                mks_machine_mode = MODE_DRAWING;
+                new_mode = MODE_DRAWING;
             }
             else if (strncmp(mode, "none", 4) == 0) {
-                mks_machine_mode = MODE_NONE;
+                new_mode = MODE_NONE;
             }
             
-            // Report mode change to all clients
-            report_machine_mode();
-        }
-    }
-    
-    // Check for gcode command
-    if (doc.containsKey("gcode")) {
-        const char* gcode = doc["gcode"];
-        if (gcode) {
-            // Execute the G-code command
-            grbl_msg_sendf(CLIENT_SERIAL, MsgLevel::Debug, "Executing G-code: %s", gcode);
-            
-            // Prepare and execute the G-code
-            char gc_line[256];
-            strncpy(gc_line, gcode, 255);
-            gc_line[255] = '\0';
-            
-            Error status_code = gc_execute_line(gc_line, CLIENT_SERIAL);
-            
-            // Handle errors
-            if (status_code != Error::Ok) {
-                grbl_msg_sendf(CLIENT_SERIAL, MsgLevel::Error, "G-code error: %s", errorString(status_code));
+            // Only report if the mode actually changed
+            if (previous_mode != new_mode) {
+                mks_machine_mode = new_mode;
+                // Report mode change to all clients
+                report_machine_mode();
+                
+                // Disable throttled reporting for mode changes
+                throttled_reporting_active = false;
             }
         }
     }
     
     // Other commands can be handled here
+}
+
+// Send JSON payload to Arduino slave
+bool send_json_to_arduino(const char* json) {
+    // Max json payload size we will send
+    const size_t maxPayloadSize = 32;
+    
+    // Only send if we have valid json data
+    if (!json || strlen(json) == 0 || strlen(json) > maxPayloadSize) {
+        grbl_msg_sendf(CLIENT_SERIAL, MsgLevel::Error, "Invalid JSON payload or size exceeded");
+        return false;
+    }
+    
+    // Start transmission to slave device
+    Wire.beginTransmission(0x08); // Arduino address
+    
+    // Send the JSON payload - cast to uint8_t* to match Wire.write signature
+    size_t bytesWritten = Wire.write((const uint8_t*)json, strlen(json));
+    
+    // End transmission
+    uint8_t result = Wire.endTransmission();
+    
+    // Log result
+    if (result == 0 && bytesWritten == strlen(json)) {
+        grbl_msg_sendf(CLIENT_SERIAL, MsgLevel::Info, "Sent to Arduino: %s", json);
+        
+        // Forward to console for visibility
+        grbl_sendf(CLIENT_SERIAL, "[JSON_SENT:%s]\r\n", json);
+        return true;
+    } else {
+        grbl_msg_sendf(CLIENT_SERIAL, MsgLevel::Error, "Failed to send JSON to Arduino, error: %d", result);
+        return false;
+    }
 }
 
 // Get machine mode as a string

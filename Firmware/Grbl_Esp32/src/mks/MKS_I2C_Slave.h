@@ -28,6 +28,7 @@ void mks_i2c_process_json(const char* json);  // Process JSON commands
 void report_machine_mode();                   // Report the current machine mode
 const char* get_machine_mode_string();        // Get machine mode as string
 void forward_json_to_console(const char* json); // Forward JSON to UGS console
+bool send_json_to_arduino(const char* json);  // Send JSON to Arduino through I2C
 
 // External vars
 extern uint8_t mks_machine_mode;              // Current machine mode
