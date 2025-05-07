@@ -3,13 +3,13 @@
 // Global variables
 uint8_t mks_machine_mode = MODE_NONE; // Default mode is none
 TaskHandle_t i2cTaskHandle = NULL;    // Task handle for the polling task
-char i2c_buffer[256];                 // Buffer for I2C data
+char i2c_buffer[48];                 // Buffer for I2C data
 
 // Variables for throttled JSON reporting
 uint32_t last_json_report_time = 0;   // Last time JSON was reported
 uint32_t mode_change_time = 0;        // Time when mode change was detected
 bool throttled_reporting_active = false; // Flag to indicate if throttled reporting is active
-char last_json_content[256] = {0};    // Store the last JSON content for repeat sending
+char last_json_content[48] = {0};    // Store the last JSON content for repeat sending
 
 // Initialize I2C functionality
 void mks_i2c_slave_init() {
@@ -124,7 +124,7 @@ void forward_json_to_console(const char* json) {
 // Process JSON commands
 void mks_i2c_process_json(const char* json) {
     // Parse JSON
-    StaticJsonDocument<256> doc;
+    StaticJsonDocument<48> doc;
     DeserializationError error = deserializeJson(doc, json);
     
     if (error) {
