@@ -462,7 +462,7 @@ Error send_yellow_command(const char* value, WebUI::AuthenticationLevel auth_lev
 }
 
 Error send_black_command(const char* value, WebUI::AuthenticationLevel auth_level, WebUI::ESPResponseStream* out) {
-    return send_color_command(value, "b", auth_level, out);
+    return send_color_command(value, "k", auth_level, out);
 }
 
 const char* alarmString(ExecAlarm alarmNumber) {
