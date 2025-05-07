@@ -51,8 +51,8 @@ const int PIN_DRAWING = 6;  // Pin 6 HIGH = Drawing mode
 const int LED_STATUS = 13;  // Arduino onboard LED for status
 
 
-const int STEP_PIN = 8;
-const int DIR_PIN = 9;
+const int STEP_PIN = 9;
+const int DIR_PIN = 8;
 const int ENA_PIN = 10;
 
 // Define color positions (steps from origin)

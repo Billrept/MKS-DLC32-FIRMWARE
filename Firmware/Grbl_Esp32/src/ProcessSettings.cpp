@@ -450,19 +450,19 @@ Error send_color_command(const char* value, const char* colorName, WebUI::Authen
 
 // CMYK color command handlers
 Error send_cyan_command(const char* value, WebUI::AuthenticationLevel auth_level, WebUI::ESPResponseStream* out) {
-    return send_color_command(value, "cyan", auth_level, out);
+    return send_color_command(value, "c", auth_level, out);
 }
 
 Error send_magenta_command(const char* value, WebUI::AuthenticationLevel auth_level, WebUI::ESPResponseStream* out) {
-    return send_color_command(value, "magenta", auth_level, out);
+    return send_color_command(value, "m", auth_level, out);
 }
 
 Error send_yellow_command(const char* value, WebUI::AuthenticationLevel auth_level, WebUI::ESPResponseStream* out) {
-    return send_color_command(value, "yellow", auth_level, out);
+    return send_color_command(value, "y", auth_level, out);
 }
 
 Error send_black_command(const char* value, WebUI::AuthenticationLevel auth_level, WebUI::ESPResponseStream* out) {
-    return send_color_command(value, "black", auth_level, out);
+    return send_color_command(value, "b", auth_level, out);
 }
 
 const char* alarmString(ExecAlarm alarmNumber) {
